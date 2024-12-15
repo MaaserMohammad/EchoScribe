@@ -22,7 +22,7 @@ function App() {
           <FileDisplay
             handleAudioReset={handleAudioReset}
             file={file}
-            AudioStream={setAudioStream}
+            AudioStream={AudioStream}
           />
         ) : (
           <HomePage
