@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef } from "react";
 export default function HomePage(props) {
   const { setAudioStream, setFile } = props;
 
-  const [recordingStatus, SetRecordingState] = useState("inactive");
-  const [audioStatus, setAudioChunks] = useState([]);
+  const [recordingStatus, SetRecordingStatus] = useState("inactive");
+  const [audioChunks, setAudioChunks] = useState([]);
   const [duration, setDuration] = useState(0);
 
   const mediaRecord = useRef(null);
@@ -12,21 +12,61 @@ export default function HomePage(props) {
   const mimeType = "audio/webm";
 
   async function StartRecording() {
+    console.log("Start recording");
     let tempStream;
 
-    console.log("Start recording");
-
     try {
-      const streamData = navigator.mediaDevices.getUserMedia({
+      tempStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: false,
       });
-      tempStream = streamData;
     } catch (err) {
       console.log(err.message);
       return;
     }
+    SetRecordingStatus("recording");
+
+    const media = new MediaRecorder(tempStream, { type: mimeType });
+    mediaRecord.current = media;
+
+    mediaRecord.current.start();
+    let localAudioChunks = [];
+    mediaRecord.current.ondataavailable = (event) => {
+      if (typeof event.data === "undefined") {
+        return;
+      }
+      if (event.data.size === 0) {
+        return;
+      }
+      localAudioChunks.push(event.data);
+    };
+    setAudioChunks(localAudioChunks);
   }
+
+  async function stopRecording() {
+    SetRecordingStatus("inactive");
+    console.log("Stop recording");
+
+    mediaRecord.current.stop();
+    mediaRecord.current.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
+      setAudioStream(audioBlob);
+      setAudioChunks([]);
+      setDuration(0);
+    };
+  }
+
+  useEffect(() => {
+    if (recordingStatus === "inactive") {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setDuration((curr) => curr + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  });
 
   return (
     <main
@@ -40,12 +80,23 @@ export default function HomePage(props) {
         Record <span className='text-blue-400'>&rarr;</span> Transcribe{" "}
         <span className='text-blue-400'>&rarr;</span> Translate
       </h3>
-      <button
+      <button onClick={recordingStatus ==='recording' ? stopRecording : StartRecording }
         className='flex items-center text-base justify-between
       gap-4 mx-auto w-72 max-w-full my-4 specialBtn px-4 py-2  rounded-xl'
       >
-        <p className='text-blue-400'>Record</p>
-        <i className='fa-solid fa-microphone'></i>
+        <p className='text-blue-400'>
+          {" "}
+          {recordingStatus === "inactive" ? "Record" : `Stop recording`}
+        </p>
+        <div className='flex items-center gap-2'>
+          {duration && <p className='text-sm '>{duration}s</p>}
+          <i
+            className={
+              "fa-solid duration-200 fa-microphone" +
+              (recordingStatus === "recording" ? "text-rose-300" : "")
+            }
+          ></i>
+        </div>
       </button>
       <p className='text-base'>
         {" "}
